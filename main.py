@@ -1,5 +1,7 @@
 from fastapi import FastAPI
-
+import ee
+from utils.ee_downloader import eeDownloader
+ee.Initialize()
 app = FastAPI()
 
 
@@ -11,3 +13,8 @@ async def root():
 @app.get("/hello/{name}")
 async def say_hello(name: str):
     return {"message": f"Hello {name}"}
+
+@app.post("/eeDownload")
+async def ee_download(config: dict):
+   strPath = await eeDownloader(config)
+   return {"file": strPath}
