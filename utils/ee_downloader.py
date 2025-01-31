@@ -39,7 +39,7 @@ async def eeDownloader(config:dict):
         .select(config['Option']['Bands'])
 
     eeComposite = collection.median().clip(eeRoi)
-    strDir = os.path.join(os.path.expanduser("../Resource"), 'Tif')
+    strDir = os.path.expanduser("./assets")
     if not os.path.exists(strDir):
         os.makedirs(strDir)
     strPath= os.path.join(strDir, config['Option']['FileName'] + ".tif")
@@ -50,4 +50,4 @@ async def eeDownloader(config:dict):
         crs=config['Option']['Crs'],
         scale=int(config['Option']['Scale']),
     )
-    return {"Name": config['Option']['FileName'] + ".tif"}
+    return config['Option']['FileName']
