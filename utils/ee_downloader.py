@@ -2,8 +2,12 @@ import ee
 import os
 import geemap
 import importlib.util
-from .default_process import defaultProcess
 
+import nest_asyncio
+
+from .default_process import defaultProcess
+from .geo_utils import fetchSatelliteDataReturnFileName
+nest_asyncio.apply()
 
 def loadUserFunction(strModuleName):
     if strModuleName is None:
@@ -26,6 +30,13 @@ def loadUserFunction(strModuleName):
 async def eeDownloader(config:dict):
     if config['Option']['UserImage'] is not None:
         return config['Option']['UserImage']
+    if config['Option']['Sensor'] == '谷歌地图瓦片':
+        return fetchSatelliteDataReturnFileName(
+            intZoomLevel=int(20),
+            strRootDirectory=os.path.expanduser("./assets"),
+            geojsonData=config['Geojson'],
+            strFileName=config['Option']['FileName']
+        )
     strSensor = ee.ImageCollection(config['Option']['Sensor'])
     eeGeoJSON = geemap.geojson_to_ee(config['Geojson'])
     eeRoi = eeGeoJSON.geometry()
@@ -50,4 +61,4 @@ async def eeDownloader(config:dict):
         crs=config['Option']['Crs'],
         scale=int(config['Option']['Scale']),
     )
-    return config['Option']['FileName']
+    return config['Option']['FileName'] + ".tif"
