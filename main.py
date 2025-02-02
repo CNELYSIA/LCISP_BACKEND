@@ -145,3 +145,38 @@ async def get_thumbnail(filename: str):
     except Exception as e:
         # 如果发生任何异常，抛出HTTP 404错误，并返回错误详情
         raise HTTPException(status_code=404, detail=str(e))
+
+
+
+@app.post("/uploadPth")
+async def upload_weights(file: UploadFile = File(...)):
+    UPLOAD_DIRECTORY = "./assets/weights/"
+    # 检查文件是否存在
+    if not file:
+        raise HTTPException(status_code=400, detail="未找到上传的文件")
+
+    # 获取文件扩展名并检查是否为 .py 文件
+    filename = file.filename
+    ext = os.path.splitext(filename)[1].lower()
+    if ext != '.pth':
+        raise HTTPException(status_code=400, detail="仅支持 .pth 文件上传")
+
+    # 确保上传目录存在
+    if not os.path.exists(UPLOAD_DIRECTORY):
+        os.makedirs(UPLOAD_DIRECTORY)
+
+    # 生成时间戳
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    new_filename = f"{timestamp}{ext}"
+    destination = os.path.join(UPLOAD_DIRECTORY, new_filename)
+
+    try:
+        # 将上传的文件写入到目标路径
+        with open(destination, "wb") as script_file:
+            content = await file.read()  # 异步读取上传的文件内容
+            script_file.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
+
+
+    return {"info": f"文件 '{new_filename}' 已成功上传", "filename": new_filename}
