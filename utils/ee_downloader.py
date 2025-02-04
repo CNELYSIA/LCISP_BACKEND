@@ -9,22 +9,41 @@ from .default_process import defaultProcess
 from .geo_utils import fetchSatelliteDataReturnFileName
 nest_asyncio.apply()
 
-def loadUserFunction(strModuleName):
+import ast
+
+def is_safe_code(source):
+    """
+    进行简单的静态分析，检查代码中是否包含任何 import 语句。
+    """
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import) or isinstance(node, ast.ImportFrom):
+            return False
+    return True
+
+def loadUserFunction(strModuleName, defaultProcess):
     if strModuleName is None:
         # 如果条件为True，则使用默认的userProcess方法
         return defaultProcess
     else:
         # 如果条件为False，则加载userProcess方法
         module_name = 'userModule.' + strModuleName
-        file_path = 'utils\\userModule\\' + strModuleName + '.py'
+        file_path = 'utils/userModule/' + strModuleName + '.py'
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                source_code = f.read()
+        except UnicodeDecodeError:
+            raise ValueError(f"请使用UTF-8编码的Python文件.")
+
+        if not is_safe_code(source_code):
+            raise ValueError("存在不允许的引用.")
 
         spec = importlib.util.spec_from_file_location(module_name, file_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
         return getattr(module, 'userProcess')
-
-
 
 
 async def eeDownloader(config:dict):

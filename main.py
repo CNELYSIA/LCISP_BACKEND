@@ -1,9 +1,10 @@
 from datetime import datetime
 import os
-
+import translators as ts
 from fastapi import FastAPI, UploadFile, File, HTTPException
 import ee
 from starlette.middleware.cors import CORSMiddleware
+from starlette.staticfiles import StaticFiles
 
 from utils.ee_downloader import eeDownloader
 from fastapi.responses import StreamingResponse
@@ -11,8 +12,11 @@ from PIL import Image
 import io
 
 from utils.geo_utils import *
-
-ee.Initialize()
+from fastapi.responses import FileResponse
+from utils.lang_segment_anything import *
+from utils.yolo_segment_anything import *
+from utils.statistics_download_img import get_image_info
+# ee.Initialize()
 app = FastAPI()
 
 origins = [
@@ -32,7 +36,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
@@ -180,3 +183,39 @@ async def upload_weights(file: UploadFile = File(...)):
 
 
     return {"info": f"文件 '{new_filename}' 已成功上传", "filename": new_filename}
+
+
+@app.post("/predict")
+async def predict(config: dict):
+    IMAGE_DIRECTORY = "./assets/"
+    strExtractType = ts.translate_text(config['Extraction'], from_language='zh', to_language='en')
+    print(strExtractType)
+    strPath = os.path.join(IMAGE_DIRECTORY, config['FileName'])
+    pilImage = Image.open(strPath).convert("RGB")
+    if config['ModelName'] == 'LangSAM':
+        strMixture = predictWithOrigin(pilImage, strExtractType, config['FileName'])
+        strOrigin = predictWithMask(pilImage, strExtractType, config['FileName'])
+        return {"Mixture": strMixture, "Origin": strOrigin}
+    elif config['ModelName'] == 'YoloSAM':
+        strMixture = yoloWithSamMixedImage("seg", "text", 0.25, pilImage, config['FileName'], strExtractType)
+        strOrigin = yoloWithSamMaskImage("seg", "text", 0.25, pilImage, config['FileName'], strExtractType)
+        return {"Mixture": strMixture, "Origin": strOrigin}
+
+
+@app.get("/download/")
+async def download_file(filename: str):
+    IMAGE_DIRECTORY = "./assets/"
+    file_path = os.path.join( IMAGE_DIRECTORY, filename)
+
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="文件未找到")
+
+    # 使用FileResponse来发送文件
+    return FileResponse(path=file_path, filename=filename, media_type='application/octet-stream')
+
+@app.get("/getInfo/")
+async def get_info(filename: str):
+    IMAGE_DIRECTORY = "./assets/"
+    file_path = os.path.join( IMAGE_DIRECTORY, filename)
+    info = get_image_info(file_path)
+    return info
