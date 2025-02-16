@@ -60,7 +60,7 @@ async def eeDownloader(config:dict):
     eeGeoJSON = geemap.geojson_to_ee(config['Geojson'])
     eeRoi = eeGeoJSON.geometry()
 
-    functionProcess = loadUserFunction(config['Option']['UserModule'])
+    functionProcess = loadUserFunction(config['Option']['UserModule'], defaultProcess)
 
     collection = strSensor.filterDate(config['Option']['StartDate'], config['Option']['EndDate']) \
         .filter(ee.Filter.lt(config['Option']['Filter'][0], int(config['Option']['Filter'][1]))) \

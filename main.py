@@ -1,11 +1,14 @@
 from datetime import datetime
 import os
+from pathlib import Path
+
 import translators as ts
 from fastapi import FastAPI, UploadFile, File, HTTPException
 import ee
 from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 
+from utils.create_zip import createZip
 from utils.ee_downloader import eeDownloader
 from fastapi.responses import StreamingResponse
 from PIL import Image
@@ -16,7 +19,8 @@ from fastapi.responses import FileResponse
 from utils.lang_segment_anything import *
 from utils.yolo_segment_anything import *
 from utils.statistics_download_img import get_image_info
-# ee.Initialize()
+from utils.statistics_mask import analyze_mask
+ee.Initialize()
 app = FastAPI()
 
 origins = [
@@ -36,6 +40,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+os.environ ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
@@ -153,12 +159,12 @@ async def get_thumbnail(filename: str):
 
 @app.post("/uploadPth")
 async def upload_weights(file: UploadFile = File(...)):
-    UPLOAD_DIRECTORY = "./assets/weights/"
+    UPLOAD_DIRECTORY = "./assets/"
     # 检查文件是否存在
     if not file:
         raise HTTPException(status_code=400, detail="未找到上传的文件")
 
-    # 获取文件扩展名并检查是否为 .py 文件
+    # 获取文件扩展名并检查是否为 .pth 文件
     filename = file.filename
     ext = os.path.splitext(filename)[1].lower()
     if ext != '.pth':
@@ -193,14 +199,25 @@ async def predict(config: dict):
     strPath = os.path.join(IMAGE_DIRECTORY, config['FileName'])
     pilImage = Image.open(strPath).convert("RGB")
     if config['ModelName'] == 'LangSAM':
-        strMixture = predictWithOrigin(pilImage, strExtractType, config['FileName'])
-        strOrigin = predictWithMask(pilImage, strExtractType, config['FileName'])
+        strOrigin, strMixture =  predictAndSave(pilImage, strExtractType, config['FileName'])
         return {"Mixture": strMixture, "Origin": strOrigin}
     elif config['ModelName'] == 'YoloSAM':
-        strMixture = yoloWithSamMixedImage("seg", "text", 0.25, pilImage, config['FileName'], strExtractType)
-        strOrigin = yoloWithSamMaskImage("seg", "text", 0.25, pilImage, config['FileName'], strExtractType)
+        strOrigin, strMixture = yoloWithSam("seg", "text", 0.25, pilImage, config['FileName'], strExtractType)
         return {"Mixture": strMixture, "Origin": strOrigin}
 
+    strFilePath = Path(config['FileName'])
+    strFileName = strFilePath.stem + ".zip"
+    if config['Weights'] is None:
+        zip = createZip('./utils/ModelTrainer', [strPath], config)
+
+    else:
+        pthPath = os.path.join(IMAGE_DIRECTORY, config['Weights'])
+        Paths = [pthPath, strPath]
+        zip = createZip('./utils/ModelTrainer', Paths, config)
+
+    strSavePath = os.path.join(IMAGE_DIRECTORY, strFileName)
+    with open(strSavePath, 'wb') as f:
+        f.write(zip.getbuffer())
 
 @app.get("/download/")
 async def download_file(filename: str):
@@ -218,4 +235,12 @@ async def get_info(filename: str):
     IMAGE_DIRECTORY = "./assets/"
     file_path = os.path.join( IMAGE_DIRECTORY, filename)
     info = get_image_info(file_path)
+    return info
+
+@app.get("/getMaskInfo/")
+async def get_Mask_info(filename: str):
+    IMAGE_DIRECTORY = "./assets/"
+    file_path = os.path.join( IMAGE_DIRECTORY, filename)
+    IMG = cv2.imread(file_path)
+    info = analyze_mask(IMG)
     return info
