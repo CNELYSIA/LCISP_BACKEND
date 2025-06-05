@@ -1,7 +1,7 @@
 import asyncio
 import cv2
 import numpy as np
-from osgeo import gdal
+from osgeo import gdal, ogr, osr
 import os
 from concurrent.futures import ThreadPoolExecutor
 from .google_downloader import fetchSatelliteData
@@ -10,7 +10,6 @@ gdal.UseExceptions()
 def fetchSatelliteDataReturnFileName(intZoomLevel, strRootDirectory, geojsonData, strFileName):
     asyncio.run(fetchSatelliteData(intZoomLevel, strRootDirectory, geojsonData, strFileName))
     return strFileName + ".tif"
-
 
 class ImageData:
     def __init__(self, strImageName, npImageData, tupleOriginalShape, prj=None, geoTransform=None, isGdalRead=False):
@@ -316,7 +315,80 @@ class ImageManager:
             self.dictGeoReferencedImages[strImageName] = ImageData(strImageName, dstData, (imgHeight, imgWidth), prj,
                                                                  geoTransform, targetImageData.isGdalRead)
 
+    def tif2shp(self, output_dir="shp_output"):
+        """将存储的TIF影像转换为Shapefile格式"""
+        from osgeo import ogr, osr
 
+        if not hasattr(self, 'dictImages'):
+            print("No images loaded. Please use readImg() first.")
+            return
+
+        os.makedirs(output_dir, exist_ok=True)
+
+        for img_name, img_data in self.dictImages.items():
+            if not img_data.isGdalRead:
+                print(f"Skipping {img_name} - not a GDAL read image")
+                continue
+
+            # 新增投影信息校验
+            if not img_data.prj or not img_data.geoTransform:
+                print(f"Skipping {img_name} - missing spatial reference information")
+                continue
+
+            try:
+                # 创建临时栅格文件（解决内存数据无法识别的问题）
+                temp_tif = os.path.join(output_dir, f"temp_{img_name}.tif")
+                driver = gdal.GetDriverByName("GTiff")
+                dataset = driver.Create(
+                    temp_tif,
+                    img_data.npImageData.shape[1],
+                    img_data.npImageData.shape[0],
+                    1,  # 单波段
+                    gdal.GDT_Byte
+                )
+                dataset.SetProjection(img_data.prj)
+                dataset.SetGeoTransform(img_data.geoTransform)
+                band = dataset.GetRasterBand(1)
+                band.WriteArray(
+                    img_data.npImageData[:, :, 0] if len(img_data.npImageData.shape) == 3 else img_data.npImageData)
+                dataset = None  # 确保写入完成
+
+                # 使用临时文件进行矢量化
+                src_ds = gdal.Open(temp_tif)
+                band = src_ds.GetRasterBand(1)
+
+                # 创建shapefile
+                shp_path = os.path.join(output_dir, f"{img_name}.shp")
+                driver = ogr.GetDriverByName("ESRI Shapefile")
+                ds = driver.CreateDataSource(shp_path)
+
+                # 增强空间参考处理
+                srs = osr.SpatialReference()
+                if srs.ImportFromWkt(img_data.prj) != ogr.OGRERR_NONE:
+                    srs.ImportFromEPSG(4326)  # 默认WGS84坐标系
+
+                layer = ds.CreateLayer("polygons", srs, ogr.wkbPolygon)
+                layer.CreateField(ogr.FieldDefn("DN", ogr.OFTInteger))
+
+                # 优化栅格转矢量参数
+                gdal.Polygonize(
+                    band,  # 输入栅格带
+                    None,  # 掩膜带
+                    layer,  # 输出图层
+                    0,  # 字段索引
+                    ["8CONNECTED=8"],
+                    callback=None
+                )
+
+                ds = None
+                src_ds = None
+                os.remove(temp_tif)  # 清理临时文件
+                print(f"Successfully saved: {shp_path}")
+
+            except Exception as e:
+                print(f"Error processing {img_name}: {str(e)}")
+                if os.path.exists(temp_tif):
+                    os.remove(temp_tif)
 
 
 # if __name__ == "__main__":

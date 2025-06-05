@@ -1,0 +1,49 @@
+{
+  "chain_id": "bc5864c6-6d1f-42db-9fe0-d797ad1c30bd",
+  "name": "图像裁剪与保存任务链",
+  "description": "读取一个jpg图像，裁剪成256*256的切片，然后以png格式保存这些切片。",
+  "nodes": {
+    "1": {
+      "node_id": "1",
+      "task_name": "读取原始图像",
+      "function_name": "readImg",
+      "parameters": {
+        "strFilePath": "data\\captured-image 21.png"
+      },
+      "description": "从指定路径读取jpg格式的原始图像。",
+      "next_nodes": [
+        "2"
+      ]
+    },
+    "2": {
+      "node_id": "2",
+      "task_name": "裁剪图像为小块",
+      "function_name": "cropImg",
+      "parameters": {
+        "intWidth": 256,
+        "intHeight": 256,
+        "intStep": 256,
+        "intStartGroup": 0
+      },
+      "description": "将原始图像裁剪成大小为256x256像素的小块。",
+      "next_nodes": [
+        "3"
+      ]
+    },
+    "3": {
+      "node_id": "3",
+      "task_name": "保存图像切片",
+      "function_name": "saveImg",
+      "parameters": {
+        "strOutFormat": ".png",
+        "formEE": false
+      },
+      "description": "将裁剪后的图像小块保存为png格式的文件，默认保存到桌面的result文件夹下。",
+      "next_nodes": []
+    }
+  },
+  "start_nodes": [
+    "1"
+  ],
+  "data_path": "data\\captured-image 21.png"
+}

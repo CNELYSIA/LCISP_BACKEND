@@ -6,7 +6,7 @@ from PIL import Image
 import numpy as np
 
 # 初始化模型
-sam_model = SAM("./modelWeights/sam2.1_l.pt")
+sam_model = SAM("./modelWeights/sam_l.pt")
 model_det_all = YOLO('./modelWeights/yolov8x-worldv2.pt')
 
 def yoloWithSam(task_type, detection_type, box_threshold, pilImage, strfileName, text_prompt=None):

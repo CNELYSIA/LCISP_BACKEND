@@ -1,0 +1,90 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>任务链可视化</title>
+            <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+            <style type="text/css">
+                #mynetwork {
+                    width: 100%;
+                    height: 500px;
+                    border: 1px solid lightgray;
+                }
+            </style>
+        </head>
+        <body>
+            <div id="mynetwork"></div>
+            <script type="text/javascript">
+                // 节点数据
+                var nodes = new vis.DataSet([
+                    [{"id": "read_img_node", "label": "\u8bfb\u53d6\u56fe\u50cf\n(readImg)", "title": "ID: read_img_node\n\u51fd\u6570: readImg\n\u63cf\u8ff0: \u4ece\u6307\u5b9a\u8def\u5f84\u52a0\u8f7d\u539f\u59cb\u56fe\u50cf"}, {"id": "crop_img_node", "label": "\u88c1\u526a\u56fe\u50cf\n(cropImg)", "title": "ID: crop_img_node\n\u51fd\u6570: cropImg\n\u63cf\u8ff0: \u5c06\u56fe\u50cf\u88c1\u526a\u6210500x500\u50cf\u7d20\u7684\u5c0f\u5757\uff0c\u6b65\u957f\u4e3a250\u50cf\u7d20"}, {"id": "stretch_img_node", "label": "\u7ebf\u6027\u62c9\u4f38\n(truncatedLinearStretch)", "title": "ID: stretch_img_node\n\u51fd\u6570: truncatedLinearStretch\n\u63cf\u8ff0: \u5bf9\u88c1\u526a\u540e\u7684\u6bcf\u4e2a\u5c0f\u5757\u8fdb\u884c\u7ebf\u6027\u62c9\u4f38\u5904\u7406\uff0c\u4f7f\u75282%\u622a\u65ad\u70b9"}, {"id": "assign_georef_node", "label": "\u8d4b\u5730\u7406\u53c2\u8003\n(assignGeoreference)", "title": "ID: assign_georef_node\n\u51fd\u6570: assignGeoreference\n\u63cf\u8ff0: \u4e3a\u6bcf\u4e2a\u7ecf\u8fc7\u7ebf\u6027\u62c9\u4f38\u5904\u7406\u7684\u5c0f\u5757\u56fe\u50cf\u5206\u914d\u5730\u7406\u53c2\u8003\u4fe1\u606f"}, {"id": "stitch_img_node", "label": "\u62fc\u63a5\u56fe\u50cf\n(stitchImg)", "title": "ID: stitch_img_node\n\u51fd\u6570: stitchImg\n\u63cf\u8ff0: \u5c06\u6240\u6709\u5c0f\u5757\u91cd\u65b0\u62fc\u63a5\u6210\u4e00\u4e2a\u5b8c\u6574\u7684\u56fe\u50cf"}, {"id": "tif_to_shp_node", "label": "\u8f6cShapefile\n(tif2shp)", "title": "ID: tif_to_shp_node\n\u51fd\u6570: tif2shp\n\u63cf\u8ff0: \u5c06\u6700\u7ec8\u5f97\u5230\u7684TIF\u5f71\u50cf\u8f6c\u6362\u4e3aShapefile\u683c\u5f0f"}]
+                ]);
+                
+                // 边数据
+                var edges = new vis.DataSet([
+                    [{"from": "read_img_node", "to": "crop_img_node"}, {"from": "crop_img_node", "to": "stretch_img_node"}, {"from": "stretch_img_node", "to": "assign_georef_node"}, {"from": "assign_georef_node", "to": "stitch_img_node"}, {"from": "stitch_img_node", "to": "tif_to_shp_node"}]
+                ]);
+                
+                // 配置选项
+                var options = {
+                    physics: {
+                        forceAtlas2Based: {
+                            gravitationalConstant: -100,
+                            centralGravity: 0.005,
+                            springLength: 200,
+                            springConstant: 0.18
+                        },
+                        maxVelocity: 50,
+                        solver: 'forceAtlas2Based'
+                    },
+                    interaction: {
+                        hover: true,
+                        tooltipDelay: 200
+                    },
+                    nodes: {
+                        shape: 'box',
+                        color: {
+                            background: '#66BB6A',
+                            border: '#388E3C'
+                        },
+                        borderWidth: 2,
+                        font: {
+                            size: 14
+                        }
+                    },
+                    edges: {
+                        arrows: 'to',
+                        color: {
+                            color: '#388E3C'
+                        },
+                        width: 2
+                    }
+                };
+                
+                // 创建网络
+                var container = document.getElementById('mynetwork');
+                var data = {
+                    nodes: nodes,
+                    edges: edges
+                };
+                var network = new vis.Network(container, data, options);
+                
+                // 节点点击事件
+                network.on('click', function(params) {
+                    if (params.nodes.length > 0) {
+                        var nodeId = params.nodes[0];
+                        var node = nodes.get(nodeId);
+                        
+                        // 发送消息到父窗口
+                        window.parent.postMessage({
+                            type: 'node_click',
+                            node_id: nodeId,
+                            node_data: node
+                        }, '*');
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        

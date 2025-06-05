@@ -16,3 +16,6 @@ __pycache__/main.cpython-311.pyc
 utils/__pycache__/ee_downloader.cpython-311.pyc
 utils/__pycache__/lang_segment_anything.cpython-311.pyc
 utils/__pycache__/yolo_segment_anything.cpython-311.pyc
+/temp
+/dataset
+/data

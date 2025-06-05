@@ -1,5 +1,9 @@
 import json
 import os
+import shutil
+from pathlib import Path
+from shutil import copy2
+
 import cv2
 import nest_asyncio
 import numpy as np
@@ -180,6 +184,18 @@ Manager.dictCroppedImages = obj_Manager.dictImages
 Manager.stitchImg(intWidth=512, intHeight=512, intStep=256)
 if df['FileName'].lower().endswith(('.tif', '.tiff')):
     Manager.savePredicted('./Predicted', Manager.dictStitchedImages, '.tif', formEE=False)
+    strMaskName = Path(df['FileName']).stem + '_ori.tif'
 else:
     Manager.savePredicted('./Predicted', Manager.dictStitchedImages, '.png', formEE=False)
+    strMaskName = Path(df['FileName']).stem + '_ori.png'
 print('Predict Success!')
+
+strMaskPath = './Predicted/' + strMaskName
+strSavePath ='./Predicted/' + Path(df['FileName']).stem + '_mix.png'
+Mask = cv2.imread(strMaskPath)
+Origin = cv2.imread(df['FileName'])
+combine = cv2.addWeighted(Origin,0.5,Mask,0.5,0)
+cv2.imwrite(strSavePath,combine)
+
+shutil.copy2(strMaskPath,'../../assets/')
+shutil.copy2(strSavePath,'../../assets/')
